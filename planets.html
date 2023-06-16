@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Solar System</title>
+		<style>
+			html, body { margin: 0; padding: 0; overflow: hidden}
+			.realisations {
+				position: absolute;
+				left: 0;
+				top: 0;
+				width: 100px;
+				padding: 10px;
+				color: black;
+				text-align: center;
+				z-index: 9999;
+				background-color: rgba(199, 199, 199, 0.9);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="realisations">
+			<h5>REALISATIONS</h5>
+			<ol>
+				<li>
+					100%
+				</li>
+				<li>
+					100%
+				</li>
+				<li>
+					100%
+				</li>
+				<li>
+					100%
+				</li>
+				<li>
+					100%
+				</li>
+				<li>
+					100%
+				</li>
+				<li>
+					0%
+				</li>
+				<li>
+					100%
+				</li>
+				<li>
+					100%
+				</li>
+				<li>
+					0%
+				</li>
+			</ol>
+		</div>
+        <!-- Libraries Imports -->
+        <script src="js/three.min.js"></script>
+		<script src="js/OrbitControls.min.js"></script>
+		<!----------------------->
+
+		<!-- Setting the Scene and camera -->
+		<script>
+			const scene = new THREE.Scene();
+			const aspect = window.innerWidth / window.innerHeight;
+			const camera = new THREE.PerspectiveCamera( 75, aspect, 1, 100000 );
+			var clock = new THREE.Clock();
+			const renderer = new THREE.WebGLRenderer( { antialias: true } );
+			renderer.setPixelRatio( window.devicePixelRatio );
+		    renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.autoClear = false;
+			renderer.shadowMap.enabled = true;
+			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild(renderer.domElement);
+
+			var loader = new THREE.TextureLoader();
+			camera.position.z = 80;
+		</script>
+		<!----------------------------------->
+		<!-- Fragment Shader -->
+		<script id="fragmentShader" type="x-shader/x-fragment">
+
+			uniform float time;
+
+			uniform float fogDensity;
+			uniform vec3 fogColor;
+
+			uniform sampler2D texture1;
+			uniform sampler2D texture2;
+
+			varying vec2 vUv;
+
+			void main( void ) {
+
+				vec2 position = - 1.0 + 2.0 * vUv;
+
+				vec4 noise = texture2D( texture1, vUv );
+				vec2 T1 = vUv + vec2( 1.5, - 1.5 ) * time * 0.02;
+				vec2 T2 = vUv + vec2( - 0.5, 2.0 ) * time * 0.01;
+
+				T1.x += noise.x * 2.0;
+				T1.y += noise.y * 2.0;
+				T2.x -= noise.y * 0.2;
+				T2.y += noise.z * 0.2;
+
+				float p = texture2D( texture1, T1 * 2.0 ).a;
+
+				vec4 color = texture2D( texture2, T2 * 2.0 );
+				vec4 temp = color * ( vec4( p, p, p, p ) * 2.0 ) + ( color * color - 0.1 );
+
+				if( temp.r > 1.0 ) { temp.bg += clamp( temp.r - 2.0, 0.0, 100.0 ); }
+				if( temp.g > 1.0 ) { temp.rb += temp.g - 1.0; }
+				if( temp.b > 1.0 ) { temp.rg += temp.b - 1.0; }
+
+				gl_FragColor = temp;
+
+				float depth = gl_FragCoord.z / gl_FragCoord.w;
+				const float LOG2 = 1.442695;
+				float fogFactor = exp2( - fogDensity * fogDensity * depth * depth * LOG2 );
+				fogFactor = 1.0 - clamp( fogFactor, 0.0, 1.0 );
+
+				gl_FragColor = mix( gl_FragColor, vec4( fogColor, gl_FragColor.w ), fogFactor );
+
+			}
+
+		</script>
+		<!-- Vertex Shader -->
+		<script id="vertexShader" type="x-shader/x-vertex">
+
+			uniform vec2 uvScale;
+			varying vec2 vUv;
+
+			void main()
+			{
+
+				vUv = uvScale * uv;
+				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+				gl_Position = projectionMatrix * mvPosition;
+
+			}
+
+		</script>
+		<!-- Creating the planets and setting them on the scene -->
+		<script src="js/earthSetting.js"></script>
+		<script src="js/moonSetting.js"></script>
+		<script src="js/sunSetting.js"></script>
+		<script src="js/SkySphere.js"></script>
+		<script src="js/groups.js"></script>
+		<!------------------------- ------------------------------>
+
+		<script>
+			// Ajout de l'orbit control
+			var animate = true;
+			var controls = new THREE.OrbitControls( camera, renderer.domElement );
+			
+
+			// Play / Pause animation
+			document.addEventListener("keydown", (keyCode) => {
+				switch(keyCode.key) {
+					case " ":
+						animate = !animate;
+						break;
+				}
+			});
+			function render() {
+				requestAnimationFrame( render );
+				controls.update();
+
+				const delta = 5 * clock.getDelta();
+
+				// Lava material animation
+				uniforms[ 'time' ].value += 0.2 * delta;
+
+				sunMesh.rotation.y += 0.0125 * delta;
+				sunMesh.rotation.x += 0.05 * delta;
+
+				// Earth Rotation
+				if(animate) {
+					earthMesh.rotation.y += 0.2;
+					earthMoonGroup.rotation.y += 0.010;
+					solarSystemGroup.rotation.y += 0.0015;
+				}
+				renderer.clear();
+				renderer.render( scene, camera );
+			}
+			render();
+
+			window.requestAnimationFrame(render);
+		</script>
+	</body>
+</html>
